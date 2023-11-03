@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/0.5.0-beta4/html2canvas.min.js"></script>
+    <style>
+        header {
+            position: absolute;
+            top: 0;
+            right: 0;
+            left: 0;
+            height: 50px;
+            background-color: #016379;
+            color: white;
+            padding: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        #geojson {
+            background-color: #992626;
+        }
+        body {
+            background-color: #54DEFD;
+        }   
+        #mapid {
+            position: absolute;
+            top: 50px; 
+            right: 220px; 
+            bottom: 0;
+            left: 0;
+        }
+        #sidebar {
+            position: absolute;
+            top: 50px;
+            right: 0;
+            bottom: 0;
+            width: 200px; 
+            background-color: #016379;
+            overflow: auto;
+            padding: 10px;
+        }
+        /* http-server -o Main.html */
+    </style>
+</head>
+<body>
+    <header>
+        <button id="geojson">GeoJSON</button>
+    </header>
+    <div id="mapid"></div>
+    <div id="sidebar">
+        <div id="sidebar" style="display: flex; flex-direction: column; align-items: center; background-color: #C2F3FE; padding: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
+            <button id="coordinatesButton" style="background-color: #3C0000; margin: 10px; padding: 10px 20px; border: none; color: white; font-size: 16px;">Toggle Coordinates</button>
+            <button id="popupButton" style="background-color: #E63946; margin: 10px; padding: 10px 20px; border: none; color: white; font-size: 16px;">Waypoint</button>
+            <button id="createArray"style="background-color: #457B9D; margin: 10px; padding: 10px 20px; border: none; color: white; font-size: 16px;">Create Array </button>
+            <button id= "clearAll"style="background-color: #5D3E8E; margin: 10px; padding: 10px 20px; border: none; color: white; font-size: 16px;">Clear All</button>
+            <button id= "mws2" style="background-color: #24714e; margin: 10px; padding: 10px 20px; border: none; color: white; font-size: 16px;">Download Prototype</button>
+            <button id= "about" style="background-color: #F49FBC; margin: 10px; padding: 10px 20px; border: none; color: white; font-size: 16px;">About The App</button>
+            <div id="popup" style="display: none; position: fixed; width: 100%; height: 100%; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0,0,0,0.5); z-index: 9999; cursor: pointer;">
+                <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); -ms-transform: translate(-50%,-50%); background-color: #3CBC8D; color: white; font-size: 20px; padding: 50px; border: none;">
+                    <h1>About The App</h1>
+                    <p> This app is made for the purpose of the GeoSystem project. </p>
+                    <p> The App is used for the creation of sport events to easaly designate zones, </p>
+                    <p> Where the events will hapen, Using GeoJSON the sport event zones are marked </p>
+                    <p> on the map for the simple ability to download the maps image for use. </p>
+                    <p> App will be used by the sport asociation of Staicele and its middle school </p>
+                    <p> App was created for edjucational purpases </p>
+                    <button id="close" style="display: block; margin: 20px auto; padding: 10px 20px; background-color: #F49FBC; border: none; color: white; font-size: 16px;">Close</button>
+                </div>
+            </div>
+
+    <script>
+        // Initialize the map
+        var map = L.map('mapid').setView([57.5411, 25.4275], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+        }).addTo(map);
+
+        // Toggle popup functionality
+        var CreatePopup = false;
+        document.getElementById('popupButton').addEventListener('click', function() {
+            CreatePopup = !CreatePopup;
+        });
+
+        // Create marker on map click
+        map.on('click', function(e) {
+            if (CreatePopup) {
+                var latitude = e.latlng.lat.toFixed(8);
+                var longitude = e.latlng.lng.toFixed(8);
+                var marker = L.marker([latitude, longitude]).addTo(map);
+                var popupContent = "<b>You clicked the map at</b><br>Latitude: " + latitude + "<br>Longitude: " + longitude;
+                popupContent += '<br><input type="text" id="name" placeholder="Name"/><br><input type="text" id="description" placeholder="Description"/><br><button id="save">Save</button><button id="remove">Remove</button>';
+                marker.bindPopup(popupContent);
+
+                marker.on('popupopen', function() {
+                    var removeBtn = document.querySelector('.leaflet-popup-content #remove');
+                    var saveBtn = document.querySelector('.leaflet-popup-content #save');
+                    if (removeBtn)
+                        removeBtn.addEventListener('click', function() {
+                            map.removeLayer(marker);
+                        });
+                    if (saveBtn)
+                        saveBtn.addEventListener('click', function() {
+                            var name = document.getElementById('name').value;
+                            var description = document.getElementById('description').value;
+                            console.log('Name: ' + name + ', Description: ' + description);
+
+                            // Update popup content
+                            var newPopupContent = "<b>You clicked the map at</b><br>Latitude: " + latitude + "<br>Longitude: " + longitude;
+                            newPopupContent += '<br><b>Name:</b> ' + name + '<br><b>Description:</b> ' + description;
+                            newPopupContent += '<br><button id="remove">Remove</button>'; // Keep the remove button
+                            marker.bindPopup(newPopupContent).openPopup();
+                        });
+                });
+
+                marker.on('popupclose', function() {
+                    marker.off('popupopen');
+                });
+            }
+        });
+
+        // Toggle coordinates functionality
+        var showCoordinates = false;
+        document.getElementById('coordinatesButton').addEventListener('click', function() {
+            showCoordinates = !showCoordinates;
+        });
+
+        // Show coordinates on map click
+        map.on('click', function(e) {
+            if (showCoordinates) {
+                var latitude = e.latlng.lat.toFixed(8);
+                var longitude = e.latlng.lng.toFixed(8);
+                L.popup()
+                    .setLatLng(e.latlng)
+                    .setContent("You clicked the map at<br>Latitude: " + latitude + "<br>Longitude: " + longitude)
+                    .openOn(map);
+            }
+        });
+
+        // Create array
+        var selectingPoints = false;
+        var points = [];
+        var polyline = null;
+        var pointsLayer = L.layerGroup().addTo(map); // create a new layer group
+
+        document.getElementById('createArray').addEventListener('click', function() {
+            selectingPoints = !selectingPoints;
+            points = [];
+            if (polyline) {
+                map.removeLayer(polyline);
+                polyline = null;
+            }
+            pointsLayer.clearLayers(); // remove all markers from the layer
+        });
+
+        map.on('click', function(e) {
+            if (selectingPoints) {
+                points.push(e.latlng);
+                var marker = L.marker(e.latlng, {
+                    icon: L.divIcon({
+                        className: 'custom-icon',
+                        html: '<svg height="10" width="10"><circle cx="5" cy="5" r="4" stroke="orange" stroke-width="1" fill="orange" /></svg>',
+                        iconSize: [10, 10],
+                        iconAnchor: [5, 5]
+                    })
+                });
+                pointsLayer.addLayer(marker); // add the marker to the layer
+                if (polyline) {
+                }
+                polyline = L.polyline(points, {color: 'orange'}).addTo(map);
+            }
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.keyCode === 13 && selectingPoints && points.length > 1) { // Enter key has keyCode 13
+                var totalDistance = 0;
+                for (var i = 0; i < points.length - 1; i++) {
+                    totalDistance += points[i].distanceTo(points[i + 1]);
+                }
+                totalDistance = totalDistance / 1000; // convert to kilometers
+                L.popup()
+                    .setLatLng(points[points.length - 1])
+                    .setContent("Total distance: " + totalDistance.toFixed(2) + " kilometers")
+                    .openOn(map);
+                selectingPoints = false; // stop adding new points
+
+                // Add click event to polyline
+                polyline.on('click', function() {
+                    L.popup()
+                        .setLatLng(points[points.length - 1])
+                        .setContent("Total distance: " + totalDistance.toFixed(2) + " kilometers")
+                        .openOn(map);
+                });
+            }
+        });
+
+        //  Big Delete Button
+document.getElementById('clearAll').addEventListener('click', function() {
+    var center = map.getCenter();
+    var zoom = map.getZoom();
+    localStorage.setItem('mapCenterLat', center.lat);
+    localStorage.setItem('mapCenterLng', center.lng);
+    localStorage.setItem('mapZoom', zoom);
+    location.reload();
+});
+
+// Restore camera position after page reload
+window.addEventListener('load', function() {
+    var lat = localStorage.getItem('mapCenterLat');
+    var lng = localStorage.getItem('mapCenterLng');
+    var zoom = localStorage.getItem('mapZoom');
+    if (lat && lng && zoom) {
+        map.setView([lat, lng], zoom);
+    }
+});
+
+        // GeoJSON
+        var layerGroup;
+
+        document.getElementById('geojson').addEventListener('click', function() {
+    if (layerGroup) {
+        // If the layer group exists, remove it from the map
+        layerGroup.remove();
+        layerGroup = null;
+    } else {
+        // If the layer group does not exist, fetch the GeoJSON data and add it to the map
+        fetch('map.geojson')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Create a new layer group
+                layerGroup = L.layerGroup().addTo(map);
+
+                // Add the GeoJSON data to the new layer group
+                var geoJsonLayer = L.geoJSON(data, {
+                    pointToLayer: function (feature, latlng) {
+                        return L.circleMarker(latlng);
+                    }
+                }).addTo(layerGroup);
+
+                // Move the camera to the bounds of the GeoJSON data
+                map.fitBounds(geoJsonLayer.getBounds());
+            })
+            .catch(error => {
+                console.error('There has been a problem with your fetch operation:', error);
+            });
+    }
+});
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+}).addTo(map);
+
+//MWS - DO not work ? Why? 
+
+// About The APp
+document.getElementById('about').addEventListener('click', function() {
+    document.getElementById('popup').style.display = 'block';
+});
+
+document.getElementById('close').addEventListener('click', function() {
+    document.getElementById('popup').style.display = 'none';
+});
+
+// Download map image
+document.getElementById('mws2').addEventListener('click', function() {
+    var mapElement = document.getElementById('mapid'); // Replace 'mapid' with the id of your map element
+
+    html2canvas(mapElement).then(function(canvas) {
+        var img = canvas.toDataURL('image/png');
+
+        downloadImage(img, 'map.png');
+    });
+});
+
+function downloadImage(imageSrc, fileName) {
+    var link = document.createElement('a');
+    link.href = imageSrc;
+    link.download = fileName;
+    link.click();
+}
+
+
+</script>
+</body>
+</html>
